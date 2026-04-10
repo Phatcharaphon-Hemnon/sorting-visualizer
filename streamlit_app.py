@@ -199,7 +199,7 @@ def run_visualization():
         round_count += 1
         
         # แสดงตารางประวัติแบบ Real-time
-        history_header.subheader("Round-by-Round History")
+        history_header.subheader("Round History")
         history_placeholder.table(pd.DataFrame(history))
         
         if speed > 0:
