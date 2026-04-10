@@ -7,7 +7,7 @@ import pandas as pd
 st.set_page_config(page_title="Sorting Visualizer by microsteatejeck", layout="wide")
 st.title("Sorting Algorithm Visualizer")
 
-# --- Sorting Algorithm Generators (ปรับให้ส่งค่าเฉพาะเมื่อจบ Round) ---
+# --- Sorting Algorithm Generators ---
 
 def bubble_sort(arr):
     n = len(arr)
@@ -17,7 +17,6 @@ def bubble_sort(arr):
             if arr[j] > arr[j + 1]:
                 arr[j], arr[j + 1] = arr[j + 1], arr[j]
                 swapped = True
-        # จบ 1 รอบ (Round) ส่งค่าออกไปแสดงผล
         yield arr, f"Round {i + 1} Complete"
         if not swapped:
             break
@@ -30,7 +29,6 @@ def selection_sort(arr):
             if arr[j] < arr[min_idx]:
                 min_idx = j
         arr[i], arr[min_idx] = arr[min_idx], arr[i]
-        # จบ 1 รอบเมื่อหาค่าที่น้อยที่สุดเจอและสลับที่แล้ว
         yield arr, f"Round {i + 1} Complete"
 
 def insertion_sort(arr):
@@ -41,11 +39,33 @@ def insertion_sort(arr):
             arr[j + 1] = arr[j]
             j -= 1
         arr[j + 1] = key
-        # จบ 1 รอบเมื่อแทรกข้อมูลในตำแหน่งที่ถูกต้องแล้ว
         yield arr, f"Round {i} Complete"
 
+def heap_sort(arr):
+    n = len(arr)
+
+    def heapify(n, i):
+        largest = i
+        l = 2 * i + 1
+        r = 2 * i + 2
+        if l < n and arr[i] < arr[l]: largest = l
+        if r < n and arr[largest] < arr[r]: largest = r
+        if largest != i:
+            arr[i], arr[largest] = arr[largest], arr[i]
+            heapify(n, largest)
+
+    # Round 1: Build Max Heap
+    for i in range(n // 2 - 1, -1, -1):
+        heapify(n, i)
+    yield arr, "Round 1: Max Heap Built"
+
+    # Subsequent Rounds: Extract elements one by one
+    for i in range(n - 1, 0, -1):
+        arr[i], arr[0] = arr[0], arr[i]
+        heapify(i, 0)
+        yield arr, f"Round {n - i + 1}: Extracted max to index {i}"
+
 def quick_sort(arr, low, high):
-    # สำหรับ Quick Sort เราจะถือว่า 1 Round คือหลังจากการ Partition เสร็จ 1 ครั้ง
     if low < high:
         pivot = arr[high]
         i = low - 1
@@ -64,8 +84,6 @@ def merge_sort(arr, l, r):
         m = (l + r) // 2
         yield from merge_sort(arr, l, m)
         yield from merge_sort(arr, m + 1, r)
-        
-        # Merge process
         left_part = arr[l:m+1]
         right_part = arr[m+1:r+1]
         i = j = 0
@@ -86,7 +104,6 @@ def merge_sort(arr, l, r):
             arr[k] = right_part[j]
             j += 1
             k += 1
-        # จบ 1 รอบการรวมกลุ่ม
         yield arr, f"Merged range {l} to {r}"
 
 def bucket_sort(arr):
@@ -97,7 +114,6 @@ def bucket_sort(arr):
         index = int(n * val) if val < 1 else n - 1
         buckets[index].append(val)
     yield arr, "Elements distributed to buckets"
-    
     k = 0
     for i in range(n):
         buckets[i].sort()
@@ -114,7 +130,6 @@ def counting_sort(arr):
     for x in arr:
         count[int(x)] += 1
     yield arr, "Occurrences counted"
-    
     i = 0
     for val, c in enumerate(count):
         if c > 0:
@@ -126,7 +141,7 @@ def counting_sort(arr):
 # --- Sidebar Controls ---
 st.sidebar.header("Settings")
 algo_name = st.sidebar.selectbox("Select Algorithm", 
-    ["Bubble Sort", "Selection Sort", "Insertion Sort", "Quick Sort", "Merge Sort", "Bucket Sort", "Counting Sort"])
+    ["Bubble Sort", "Selection Sort", "Insertion Sort", "Heap Sort", "Quick Sort", "Merge Sort", "Bucket Sort", "Counting Sort"])
 
 st.sidebar.subheader("Data Input")
 manual_input = st.sidebar.text_input("Enter list (comma separated)", placeholder="e.g. 0.5, 0.2, 0.8, 0.1")
@@ -140,7 +155,6 @@ if st.sidebar.button("Load List"):
     except ValueError:
         st.sidebar.error("Please use valid numbers")
 
-# Single Number Input
 single_val = st.sidebar.number_input("Add a single number", min_value=0.0, max_value=200.0, value=0.5, step=0.1, format="%.2f")
 col1, col2 = st.sidebar.columns(2)
 with col1:
@@ -176,13 +190,12 @@ def run_visualization():
 
     arr_copy = st.session_state.arr.copy()
     history = []
-    
-    # เก็บสถานะเริ่มต้น
     history.append({"Round": 0, "State": "{" + ", ".join(map(str, arr_copy)) + "}"})
     
     if algo_name == "Bubble Sort": sorter = bubble_sort(arr_copy)
     elif algo_name == "Selection Sort": sorter = selection_sort(arr_copy)
     elif algo_name == "Insertion Sort": sorter = insertion_sort(arr_copy)
+    elif algo_name == "Heap Sort": sorter = heap_sort(arr_copy)
     elif algo_name == "Quick Sort": sorter = quick_sort(arr_copy, 0, len(arr_copy) - 1)
     elif algo_name == "Merge Sort": sorter = merge_sort(arr_copy, 0, len(arr_copy) - 1)
     elif algo_name == "Bucket Sort": sorter = bucket_sort(arr_copy)
@@ -190,24 +203,20 @@ def run_visualization():
 
     round_count = 1
     for current_arr, state in sorter:
-        # อัปเดตสถานะและกราฟ
         status_text.markdown(f"**Current Status:** {state}")
         chart_placeholder.bar_chart(current_arr)
         
-        # เพิ่มข้อมูลลงใน History Grid
         history.append({"Round": round_count, "State": "{" + ", ".join(map(str, current_arr)) + "}"})
         round_count += 1
         
-        # แสดงตารางประวัติแบบ Real-time
         history_header.subheader("Round History")
         history_placeholder.table(pd.DataFrame(history))
         
         if speed > 0:
             time.sleep(speed)
     
-    status_text.success(f"{algo_name} Finished!")
+    status_text.success(f"{algo_name} Finished")
 
-# แสดงกราฟเริ่มต้น
 if st.session_state.arr:
     chart_placeholder.bar_chart(st.session_state.arr)
 else:
