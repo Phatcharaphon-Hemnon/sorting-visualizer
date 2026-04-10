@@ -199,4 +199,3 @@ else:
 # Start Button
 if st.sidebar.button("Start Sorting", use_container_width=True):
     run_visualization()
-    st.progress(100)
