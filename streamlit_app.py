@@ -4,7 +4,7 @@ import time
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Sorting Visualizer by microsteatejeck", layout="wide")
-st.title("📊 Sorting Algorithm Visualizer")
+st.title("Sorting Algorithm Visualizer")
 
 # --- Sorting Algorithm Generators ---
 
@@ -156,12 +156,12 @@ def counting_sort(arr):
             i += 1
 
 # --- Sidebar Controls ---
-st.sidebar.header("⚙️ Settings")
+st.sidebar.header("Settings")
 
 algo_name = st.sidebar.selectbox("Select Algorithm", 
     ["Bubble Sort", "Selection Sort", "Insertion Sort", "Quick Sort", "Merge Sort", "Heap Sort", "Bucket Sort", "Counting Sort"])
 
-st.sidebar.subheader("🔢 Data Input")
+st.sidebar.subheader("Data Input")
 
 # --- MODIFIED: Accepts Floats ---
 manual_input = st.sidebar.text_input("Enter list (comma separated)", placeholder="e.g. 0.5, 0.2, 0.8, 0.1")
@@ -225,7 +225,7 @@ def run_visualization():
         if speed > 0:
             time.sleep(speed)
     
-    status_text.success(f"✅ {algo_name} Complete!")
+    status_text.success(f"{algo_name} Complete!")
     chart_placeholder.bar_chart(arr_copy)
 
 if st.session_state.arr:
@@ -233,6 +233,6 @@ if st.session_state.arr:
 else:
     chart_placeholder.info("List is empty. Use the sidebar to add data.")
 
-if st.sidebar.button("🚀 Start Sorting", use_container_width=True):
+if st.sidebar.button("Start Sorting", use_container_width=True):
     run_visualization()
     st.balloons()
