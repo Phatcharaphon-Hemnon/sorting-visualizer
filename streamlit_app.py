@@ -200,12 +200,3 @@ else:
 if st.sidebar.button("Start Sorting", use_container_width=True):
     run_visualization()
     st.balloons()
-
-# --- Algorithm Info ---
-with st.expander("Algorithm Complexity"):
-    st.table({
-        "Algorithm": ["Bubble", "Selection", "Insertion", "Quick", "Merge", "Heap"],
-        "Best Case": ["$O(n)$", "$O(n^2)$", "$O(n)$", "$O(n \log n)$", "$O(n \log n)$", "$O(n \log n)$"],
-        "Average Case": ["$O(n^2)$", "$O(n^2)$", "$O(n^2)$", "$O(n \log n)$", "$O(n \log n)$", "$O(n \log n)$"],
-        "Worst Case": ["$O(n^2)$", "$O(n^2)$", "$O(n^2)$", "$O(n^2)$", "$O(n \log n)$", "$O(n \log n)$"]
-    })
