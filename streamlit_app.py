@@ -1,13 +1,12 @@
 import streamlit as st
 import random
 import time
-import math
 
-# --- หน้าจอตั้งค่าหลัก ---
-st.set_page_config(page_title="Sorting Visualizer", layout="wide")
-st.title("📊 Sorting Algorithm Visualizer")
+# --- Page Configuration ---
+st.set_page_config(page_title="Sorting Visualizer by microsteatejeck", layout="wide")
+st.title("Sorting Algorithm Visualizer")
 
-# --- อัลกอริทึมการเรียงลำดับ (Generators) ---
+# --- Sorting Algorithm Generators ---
 
 def bubble_sort(arr):
     n = len(arr)
@@ -64,7 +63,6 @@ def merge_sort(arr, l, r):
         yield from merge_sort(arr, l, m)
         yield from merge_sort(arr, m + 1, r)
         
-        # Merge logic
         left_part = arr[l:m+1]
         right_part = arr[m+1:r+1]
         i = j = 0
@@ -91,62 +89,90 @@ def merge_sort(arr, l, r):
 
 def heap_sort(arr):
     n = len(arr)
-    def heapify(n, i):
-        largest = i
-        l = 2 * i + 1
-        r = 2 * i + 2
-        if l < n and arr[i] < arr[l]: largest = l
-        if r < n and arr[largest] < arr[r]: largest = r
-        if largest != i:
-            arr[i], arr[largest] = arr[largest], arr[i]
-            return True
-        return False
-
     for i in range(n // 2 - 1, -1, -1):
-        heapify(n, i)
-        yield arr, [i], "Building Heap"
-    for i in range(n-1, 0, -1):
-        arr[i], arr[0] = arr[0], arr[i]
-        yield arr, [0, i], "Extracting Max"
-        # สรุป heapify แบบง่ายใน generator
-        curr = 0
+        # Simplified Heapify logic for generator
+        curr, end = i, n
         while True:
             largest = curr
             l, r = 2*curr+1, 2*curr+2
-            if l < i and arr[curr] < arr[l]: largest = l
-            if r < i and arr[largest] < arr[r]: largest = r
+            if l < end and arr[curr] < arr[l]: largest = l
+            if r < end and arr[largest] < arr[r]: largest = r
+            if largest != curr:
+                arr[curr], arr[largest] = arr[largest], arr[curr]
+                yield arr, [curr, largest], "Building Heap"
+                curr = largest
+            else: break
+            
+    for i in range(n-1, 0, -1):
+        arr[i], arr[0] = arr[0], arr[i]
+        yield arr, [0, i], "Extracting Max"
+        curr, end = 0, i
+        while True:
+            largest = curr
+            l, r = 2*curr+1, 2*curr+2
+            if l < end and arr[curr] < arr[l]: largest = l
+            if r < end and arr[largest] < arr[r]: largest = r
             if largest != curr:
                 arr[curr], arr[largest] = arr[largest], arr[curr]
                 yield arr, [curr, largest], "Heapifying"
                 curr = largest
             else: break
 
-# --- ส่วนติดต่อผู้ใช้ (Sidebar) ---
-st.sidebar.header("⚙️ Settings")
+# --- Sidebar Controls ---
+st.sidebar.header("Settings")
+
+# 1. Algorithm Selection
 algo_name = st.sidebar.selectbox("Select Algorithm", 
     ["Bubble Sort", "Selection Sort", "Insertion Sort", "Quick Sort", "Merge Sort", "Heap Sort"])
-data_size = st.sidebar.slider("Array Size", 5, 100, 30)
+
+# 2. Data Input Section
+st.sidebar.subheader("Data Input")
+
+# Comma Separated Input
+manual_input = st.sidebar.text_input("Enter list (comma separated)", placeholder="e.g. 15, 42, 7, 30")
+if st.sidebar.button("Load List"):
+    try:
+        new_arr = [int(x.strip()) for x in manual_input.split(",") if x.strip()]
+        if new_arr:
+            st.session_state.arr = new_arr
+            st.success("Loaded!")
+    except ValueError:
+        st.sidebar.error("Use numbers and commas only.")
+
+# Single Number Input
+single_val = st.sidebar.number_input("Add a single number", min_value=0, max_value=200, value=50)
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    if st.button("Add"):
+        if "arr" not in st.session_state: st.session_state.arr = []
+        st.session_state.arr.append(single_val)
+        st.rerun()
+with col2:
+    if st.button("Clear"):
+        st.session_state.arr = []
+        st.rerun()
+
+st.sidebar.markdown("---")
+
+# 3. Randomization & Speed
+data_size = st.sidebar.slider("Random Array Size", 5, 100, 30)
 speed = st.sidebar.slider("Speed (s)", 0.0, 0.5, 0.05)
 
 if "arr" not in st.session_state or st.sidebar.button("Randomize Data"):
     st.session_state.arr = [random.randint(10, 100) for _ in range(data_size)]
-    st.session_state.sorting = False
 
-# --- การแสดงผล (Visualization) ---
+# --- Main Visualization Area ---
 status_text = st.empty()
 chart_placeholder = st.empty()
 
-# ฟังก์ชันจัดการสี (Highlighting)
-def get_colors(current_arr, highlights):
-    colors = ['#4C78A8'] * len(current_arr)
-    for idx in highlights:
-        if idx < len(colors):
-            colors[idx] = '#E45756' # สีแดงตอนกำลังทำงาน
-    return colors
-
 def run_visualization():
+    if not st.session_state.arr:
+        st.error("Please add some data first!")
+        return
+
     arr_copy = st.session_state.arr.copy()
     
+    # Select Algorithm
     if algo_name == "Bubble Sort": sorter = bubble_sort(arr_copy)
     elif algo_name == "Selection Sort": sorter = selection_sort(arr_copy)
     elif algo_name == "Insertion Sort": sorter = insertion_sort(arr_copy)
@@ -154,15 +180,32 @@ def run_visualization():
     elif algo_name == "Merge Sort": sorter = merge_sort(arr_copy, 0, len(arr_copy) - 1)
     elif algo_name == "Heap Sort": sorter = heap_sort(arr_copy)
 
+    # Animation Loop
     for current_arr, highlights, state in sorter:
-        status_text.text(f"Status: {state}")
-        # ใช้ st.bar_chart แบบง่าย (Streamlit จัดการสีอัตโนมัติได้ยากในฟังก์ชันนี้)
+        status_text.markdown(f"**Status:** `{state}` | **Comparing Indices:** `{highlights}`")
         chart_placeholder.bar_chart(current_arr)
         if speed > 0:
             time.sleep(speed)
+    
+    status_text.success(f" {algo_name} Complete!")
+    chart_placeholder.bar_chart(arr_copy)
 
-chart_placeholder.bar_chart(st.session_state.arr)
+# Render initial chart
+if st.session_state.arr:
+    chart_placeholder.bar_chart(st.session_state.arr)
+else:
+    chart_placeholder.info("The list is empty. Add numbers using the sidebar to begin.")
 
-if st.sidebar.button("🚀 Start Sorting"):
+# Start Button
+if st.sidebar.button("Start Sorting", use_container_width=True):
     run_visualization()
     st.balloons()
+
+# --- Algorithm Info ---
+with st.expander("Algorithm Complexity"):
+    st.table({
+        "Algorithm": ["Bubble", "Selection", "Insertion", "Quick", "Merge", "Heap"],
+        "Best Case": ["$O(n)$", "$O(n^2)$", "$O(n)$", "$O(n \log n)$", "$O(n \log n)$", "$O(n \log n)$"],
+        "Average Case": ["$O(n^2)$", "$O(n^2)$", "$O(n^2)$", "$O(n \log n)$", "$O(n \log n)$", "$O(n \log n)$"],
+        "Worst Case": ["$O(n^2)$", "$O(n^2)$", "$O(n^2)$", "$O(n^2)$", "$O(n \log n)$", "$O(n \log n)$"]
+    })
