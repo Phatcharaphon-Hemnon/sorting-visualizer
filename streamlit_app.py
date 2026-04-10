@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import time
+import pandas as pd
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Sorting Visualizer by microsteatejeck", layout="wide")
@@ -118,14 +119,11 @@ def heap_sort(arr):
 def bucket_sort(arr):
     n = len(arr)
     if n <= 1: return
-    # Creating n buckets
     buckets = [[] for _ in range(n)]
     for val in arr:
-        # Assuming values are between 0 and 1 for Bucket Sort visualization
         index = int(n * val) if val < 1 else n - 1
         buckets[index].append(val)
         yield arr, [arr.index(val)], f"Putting {val} in bucket {index}"
-    
     k = 0
     for i in range(n):
         buckets[i].sort()
@@ -135,19 +133,14 @@ def bucket_sort(arr):
             k += 1
 
 def counting_sort(arr):
-    # This works for non-negative integers only. 
-    # If floats are present, we temporarily convert for index mapping.
     if any(x < 0 for x in arr):
         yield arr, [], "Error: Counting Sort requires non-negative numbers"
         return
-    
     max_val = int(max(arr))
     count = [0] * (max_val + 1)
-    
     for i, x in enumerate(arr):
         count[int(x)] += 1
         yield arr, [i], f"Counting occurrences of {int(x)}"
-    
     i = 0
     for a in range(len(count)):
         for _ in range(count[a]):
@@ -163,19 +156,16 @@ algo_name = st.sidebar.selectbox("Select Algorithm",
 
 st.sidebar.subheader("Data Input")
 
-# --- MODIFIED: Accepts Floats ---
 manual_input = st.sidebar.text_input("Enter list (comma separated)", placeholder="e.g. 0.5, 0.2, 0.8, 0.1")
 if st.sidebar.button("Load List"):
     try:
-        # Changed to float() to handle decimals
         new_arr = [float(x.strip()) for x in manual_input.split(",") if x.strip()]
         if new_arr:
             st.session_state.arr = new_arr
-            st.success("Loaded!")
+            st.success("Loaded")
     except ValueError:
-        st.sidebar.error("Please use valid numbers (e.g., 0.5, 10, 2.5)")
+        st.sidebar.error("Please use valid numbers")
 
-# Single Number Input (Float)
 single_val = st.sidebar.number_input("Add a single number", min_value=0.0, max_value=200.0, value=0.5, step=0.1, format="%.2f")
 col1, col2 = st.sidebar.columns(2)
 with col1:
@@ -189,11 +179,10 @@ with col2:
         st.rerun()
 
 st.sidebar.markdown("---")
-data_size = st.sidebar.slider("Random Array Size", 5, 100, 30)
+data_size = st.sidebar.slider("Random Array Size", 5, 50, 15)
 speed = st.sidebar.slider("Speed (s)", 0.0, 0.5, 0.05)
 
 if "arr" not in st.session_state or st.sidebar.button("Randomize Data"):
-    # Randomize with decimals if Bucket Sort is picked, otherwise integers
     if algo_name == "Bucket Sort":
         st.session_state.arr = [round(random.uniform(0, 1), 2) for _ in range(data_size)]
     else:
@@ -202,13 +191,19 @@ if "arr" not in st.session_state or st.sidebar.button("Randomize Data"):
 # --- Main Visualization Area ---
 status_text = st.empty()
 chart_placeholder = st.empty()
+history_header = st.empty()
+history_placeholder = st.empty()
 
 def run_visualization():
     if not st.session_state.arr:
-        st.error("Please add some data first!")
+        st.error("Please add some data first")
         return
 
     arr_copy = st.session_state.arr.copy()
+    history = []
+    
+    # Store initial state
+    history.append({"Step": 0, "State": str(arr_copy)})
     
     if algo_name == "Bubble Sort": sorter = bubble_sort(arr_copy)
     elif algo_name == "Selection Sort": sorter = selection_sort(arr_copy)
@@ -219,13 +214,23 @@ def run_visualization():
     elif algo_name == "Bucket Sort": sorter = bucket_sort(arr_copy)
     elif algo_name == "Counting Sort": sorter = counting_sort(arr_copy)
 
+    step_count = 1
     for current_arr, highlights, state in sorter:
-        status_text.markdown(f"**Status:** `{state}` | **Indices:** `{highlights}`")
+        status_text.markdown(f"**Status:** {state} | **Indices:** {highlights}")
         chart_placeholder.bar_chart(current_arr)
+        
+        # Capture history only on "Work" steps (swaps/insertions/merges) to keep grid clean
+        if "Swapping" in state or "Inserting" in state or "Merging" in state or "bucket" in state or "Placing" in state:
+            history.append({"Step": step_count, "State": "{" + ", ".join(map(str, current_arr)) + "}"})
+            step_count += 1
+            # Update the history grid live
+            history_header.subheader("Sorting History")
+            history_placeholder.table(pd.DataFrame(history))
+        
         if speed > 0:
             time.sleep(speed)
     
-    status_text.success(f"{algo_name} Complete!")
+    status_text.success(f"{algo_name} Complete")
     chart_placeholder.bar_chart(arr_copy)
 
 if st.session_state.arr:
@@ -235,4 +240,3 @@ else:
 
 if st.sidebar.button("Start Sorting", use_container_width=True):
     run_visualization()
-    st.balloons()
