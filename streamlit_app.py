@@ -10,7 +10,7 @@ st.title("Sorting Algorithm Visualizer")
 
 # --- Color Helper ---
 NORMAL_COLOR = "#4C9BE8"
-HIGHLIGHT_COLOR = "#FF4B4B"
+HIGHLIGHT_COLOR = "#5dfc28"
 
 def make_bar_chart(arr, highlight_indices=None):
     colors = []
