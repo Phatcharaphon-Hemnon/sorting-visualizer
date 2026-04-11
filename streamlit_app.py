@@ -230,7 +230,8 @@ def run_visualization():
         status_text.markdown(f"**Current Status:** {state}")
         chart_placeholder.plotly_chart(
             make_bar_chart(current_arr, highlight_indices=highlights),
-            use_container_width=True
+            use_container_width=True,
+            key=f"chart_{round_count}"
         )
 
         history.append({"Round": round_count, "State": "{" + ", ".join(map(str, current_arr)) + "}"})
@@ -245,13 +246,15 @@ def run_visualization():
     status_text.success(f"{algo_name} Finished")
     chart_placeholder.plotly_chart(
         make_bar_chart(arr_copy, highlight_indices=list(range(len(arr_copy)))),
-        use_container_width=True
+        use_container_width=True,
+        key=f"chart_{round_count}_done"
     )
 
 if st.session_state.arr:
     chart_placeholder.plotly_chart(
         make_bar_chart(st.session_state.arr),
-        use_container_width=True
+        use_container_width=True,
+        key="chart_initial"
     )
 else:
     chart_placeholder.info("List is empty.")
