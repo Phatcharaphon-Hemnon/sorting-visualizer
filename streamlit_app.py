@@ -2,12 +2,13 @@ import streamlit as st
 import random
 import time
 import pandas as pd
+import plotly.graph_objects as go
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Sorting Visualizer by microsteatejeck", layout="wide")
 st.title("Sorting Algorithm Visualizer")
 
-# --- Sorting Algorithm Generators ---
+# --- Sorting Algorithm Generators (Yielding array, highlights, and status) ---
 
 def bubble_sort(arr):
     n = len(arr)
@@ -17,7 +18,7 @@ def bubble_sort(arr):
             if arr[j] > arr[j + 1]:
                 arr[j], arr[j + 1] = arr[j + 1], arr[j]
                 swapped = True
-        yield arr, f"Round {i + 1} Complete"
+        yield arr, list(range(n - i - 1, n)), f"Round {i + 1} Complete"
         if not swapped:
             break
 
@@ -29,7 +30,7 @@ def selection_sort(arr):
             if arr[j] < arr[min_idx]:
                 min_idx = j
         arr[i], arr[min_idx] = arr[min_idx], arr[i]
-        yield arr, f"Round {i + 1} Complete"
+        yield arr, [i, min_idx], f"Round {i + 1} Complete"
 
 def insertion_sort(arr):
     for i in range(1, len(arr)):
@@ -39,11 +40,10 @@ def insertion_sort(arr):
             arr[j + 1] = arr[j]
             j -= 1
         arr[j + 1] = key
-        yield arr, f"Round {i} Complete"
+        yield arr, [j + 1, i], f"Round {i} Complete"
 
 def heap_sort(arr):
     n = len(arr)
-
     def heapify(n, i):
         largest = i
         l = 2 * i + 1
@@ -54,16 +54,14 @@ def heap_sort(arr):
             arr[i], arr[largest] = arr[largest], arr[i]
             heapify(n, largest)
 
-    # Round 1: Build Max Heap
     for i in range(n // 2 - 1, -1, -1):
         heapify(n, i)
-    yield arr, "Round 1: Max Heap Built"
+    yield arr, list(range(n // 2)), "Max Heap Built"
 
-    # Subsequent Rounds: Extract elements one by one
     for i in range(n - 1, 0, -1):
         arr[i], arr[0] = arr[0], arr[i]
         heapify(i, 0)
-        yield arr, f"Round {n - i + 1}: Extracted max to index {i}"
+        yield arr, [0, i], f"Round {n - i + 1}: Max Extracted"
 
 def quick_sort(arr, low, high):
     if low < high:
@@ -75,7 +73,7 @@ def quick_sort(arr, low, high):
                 arr[i], arr[j] = arr[j], arr[i]
         arr[i + 1], arr[high] = arr[high], arr[i + 1]
         p = i + 1
-        yield arr, f"Pivot {pivot} placed"
+        yield arr, [p, high], f"Pivot {pivot} placed"
         yield from quick_sort(arr, low, p - 1)
         yield from quick_sort(arr, p + 1, high)
 
@@ -104,7 +102,7 @@ def merge_sort(arr, l, r):
             arr[k] = right_part[j]
             j += 1
             k += 1
-        yield arr, f"Merged range {l} to {r}"
+        yield arr, list(range(l, r + 1)), f"Merged range {l} to {r}"
 
 def bucket_sort(arr):
     n = len(arr)
@@ -113,30 +111,31 @@ def bucket_sort(arr):
     for val in arr:
         index = int(n * val) if val < 1 else n - 1
         buckets[index].append(val)
-    yield arr, "Elements distributed to buckets"
+    yield arr, [], "Elements distributed"
     k = 0
     for i in range(n):
         buckets[i].sort()
+        start_idx = k
         for val in buckets[i]:
             arr[k] = val
             k += 1
-        yield arr, f"Bucket {i} sorted and merged"
+        yield arr, list(range(start_idx, k)), f"Bucket {i} merged"
 
 def counting_sort(arr):
-    if any(x < 0 for x in arr):
-        return
+    if any(x < 0 for x in arr): return
     max_val = int(max(arr))
     count = [0] * (max_val + 1)
     for x in arr:
         count[int(x)] += 1
-    yield arr, "Occurrences counted"
+    yield arr, [], "Occurrences counted"
     i = 0
     for val, c in enumerate(count):
         if c > 0:
+            start_idx = i
             for _ in range(c):
                 arr[i] = float(val)
                 i += 1
-            yield arr, f"Placed all of value {val}"
+            yield arr, list(range(start_idx, i)), f"Placed value {val}"
 
 # --- Sidebar Controls ---
 st.sidebar.header("Settings")
@@ -148,24 +147,10 @@ manual_input = st.sidebar.text_input("Enter list (comma separated)", placeholder
 
 if st.sidebar.button("Load List"):
     try:
-        new_arr = [float(x.strip()) for x in manual_input.split(",") if x.strip()]
-        if new_arr:
-            st.session_state.arr = new_arr
-            st.success("Loaded")
+        st.session_state.arr = [float(x.strip()) for x in manual_input.split(",") if x.strip()]
+        st.success("Loaded")
     except ValueError:
-        st.sidebar.error("Please use valid numbers")
-
-single_val = st.sidebar.number_input("Add a single number", min_value=0.0, max_value=200.0, value=0.5, step=0.1, format="%.2f")
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    if st.button("Add"):
-        if "arr" not in st.session_state: st.session_state.arr = []
-        st.session_state.arr.append(single_val)
-        st.rerun()
-with col2:
-    if st.button("Clear"):
-        st.session_state.arr = []
-        st.rerun()
+        st.sidebar.error("Invalid numbers")
 
 st.sidebar.markdown("---")
 data_size = st.sidebar.slider("Random Array Size", 5, 50, 10)
@@ -177,6 +162,24 @@ if "arr" not in st.session_state or st.sidebar.button("Randomize Data"):
     else:
         st.session_state.arr = [float(random.randint(1, 100)) for _ in range(data_size)]
 
+# --- Helper Function for Colored Plotly Chart ---
+def display_chart(arr, highlights=[]):
+    colors = ['#636EFA'] * len(arr) # Default Blue
+    for idx in highlights:
+        if 0 <= idx < len(arr):
+            colors[idx] = '#EF553B' # Highlight Red
+    
+    fig = go.Figure(data=[
+        go.Bar(x=list(range(len(arr))), y=arr, marker_color=colors)
+    ])
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=20, b=20),
+        height=400,
+        xaxis=dict(visible=False),
+        yaxis=dict(title="Value")
+    )
+    chart_placeholder.plotly_chart(fig, use_container_width=True)
+
 # --- Main Visualization Area ---
 status_text = st.empty()
 chart_placeholder = st.empty()
@@ -185,13 +188,14 @@ history_placeholder = st.empty()
 
 def run_visualization():
     if not st.session_state.arr:
-        st.error("Please add some data first")
+        st.error("Add data first")
         return
 
     arr_copy = st.session_state.arr.copy()
     history = []
     history.append({"Round": 0, "State": "{" + ", ".join(map(str, arr_copy)) + "}"})
     
+    # Selection logic
     if algo_name == "Bubble Sort": sorter = bubble_sort(arr_copy)
     elif algo_name == "Selection Sort": sorter = selection_sort(arr_copy)
     elif algo_name == "Insertion Sort": sorter = insertion_sort(arr_copy)
@@ -202,9 +206,9 @@ def run_visualization():
     elif algo_name == "Counting Sort": sorter = counting_sort(arr_copy)
 
     round_count = 1
-    for current_arr, state in sorter:
+    for current_arr, highlights, state in sorter:
         status_text.markdown(f"**Current Status:** {state}")
-        chart_placeholder.bar_chart(current_arr)
+        display_chart(current_arr, highlights)
         
         history.append({"Round": round_count, "State": "{" + ", ".join(map(str, current_arr)) + "}"})
         round_count += 1
@@ -215,12 +219,12 @@ def run_visualization():
         if speed > 0:
             time.sleep(speed)
     
+    display_chart(arr_copy, []) # Final state (all blue)
     status_text.success(f"{algo_name} Finished")
 
+# Initial Render
 if st.session_state.arr:
-    chart_placeholder.bar_chart(st.session_state.arr)
-else:
-    chart_placeholder.info("List is empty.")
+    display_chart(st.session_state.arr)
 
 if st.sidebar.button("Start Sorting", use_container_width=True):
     run_visualization()
