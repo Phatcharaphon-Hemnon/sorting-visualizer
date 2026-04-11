@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Sorting Visualizer by microsteatejeck", layout="wide")
 st.title("Sorting Algorithm Visualizer")
 
-# --- Sorting Algorithm Generators (Yielding array, highlights, and status) ---
+# --- Sorting Algorithm Generators ---
 
 def bubble_sort(arr):
     n = len(arr)
@@ -122,6 +122,7 @@ def bucket_sort(arr):
         yield arr, list(range(start_idx, k)), f"Bucket {i} merged"
 
 def counting_sort(arr):
+    if not arr: return
     if any(x < 0 for x in arr): return
     max_val = int(max(arr))
     count = [0] * (max_val + 1)
@@ -164,10 +165,10 @@ if "arr" not in st.session_state or st.sidebar.button("Randomize Data"):
 
 # --- Helper Function for Colored Plotly Chart ---
 def display_chart(arr, highlights=[]):
-    colors = ['#636EFA'] * len(arr) # Default Blue
+    colors = ['#636EFA'] * len(arr) # Blue
     for idx in highlights:
         if 0 <= idx < len(arr):
-            colors[idx] = '#EF553B' # Highlight Red
+            colors[idx] = '#EF553B' # Red
     
     fig = go.Figure(data=[
         go.Bar(x=list(range(len(arr))), y=arr, marker_color=colors)
@@ -178,7 +179,8 @@ def display_chart(arr, highlights=[]):
         xaxis=dict(visible=False),
         yaxis=dict(title="Value")
     )
-    chart_placeholder.plotly_chart(fig, use_container_width=True)
+    # CRITICAL: Added key="main_chart" to prevent DuplicateElementId error
+    chart_placeholder.plotly_chart(fig, use_container_width=True, key="main_chart")
 
 # --- Main Visualization Area ---
 status_text = st.empty()
@@ -195,7 +197,6 @@ def run_visualization():
     history = []
     history.append({"Round": 0, "State": "{" + ", ".join(map(str, arr_copy)) + "}"})
     
-    # Selection logic
     if algo_name == "Bubble Sort": sorter = bubble_sort(arr_copy)
     elif algo_name == "Selection Sort": sorter = selection_sort(arr_copy)
     elif algo_name == "Insertion Sort": sorter = insertion_sort(arr_copy)
@@ -219,11 +220,10 @@ def run_visualization():
         if speed > 0:
             time.sleep(speed)
     
-    display_chart(arr_copy, []) # Final state (all blue)
+    display_chart(arr_copy, []) # Reset to blue when done
     status_text.success(f"{algo_name} Finished")
 
-# Initial Render
-if st.session_state.arr:
+if "arr" in st.session_state and st.session_state.arr:
     display_chart(st.session_state.arr)
 
 if st.sidebar.button("Start Sorting", use_container_width=True):
