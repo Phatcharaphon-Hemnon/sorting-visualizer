@@ -1,263 +1,128 @@
 import streamlit as st
-import random
-import time
-import pandas as pd
-import plotly.graph_objects as go
+import numpy as np
+import matplotlib.pyplot as plt
 
-# --- Page Configuration ---
-st.set_page_config(page_title="Sorting Visualizer by microsteatejeck", layout="wide")
-st.title("Sorting Algorithm Visualizer")
+# --- Logic Configuration ---
+SAFE_FUNCTIONS = {
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+    "exp": np.exp,
+    "log": np.log,
+    "sqrt": np.sqrt,
+    "abs": np.abs,
+    "pi": np.pi,
+    "e": np.e,
+}
 
-# --- Color Helper ---
-NORMAL_COLOR = "#4C9BE8"
-HIGHLIGHT_COLOR = "#5dfc28"
+def normalize_expression(expr: str) -> str:
+    return expr.replace("^", "**")
 
-def make_bar_chart(arr, highlight_indices=None):
-    colors = []
-    for i in range(len(arr)):
-        if highlight_indices and i in highlight_indices:
-            colors.append(HIGHLIGHT_COLOR)
-        else:
-            colors.append(NORMAL_COLOR)
-    fig = go.Figure(
-        data=[go.Bar(y=arr, marker_color=colors, showlegend=False)],
-        layout=go.Layout(
-            margin=dict(l=10, r=10, t=10, b=10),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            yaxis=dict(gridcolor="#333"),
-            height=400,
-        )
-    )
-    return fig
+def evaluate_1d(expr: str, x: np.ndarray) -> np.ndarray:
+    expr = normalize_expression(expr)
+    local_scope = {"x": x, **SAFE_FUNCTIONS}
+    return eval(expr, {"__builtins__": {}}, local_scope)
 
-# --- Sorting Algorithm Generators ---
+def evaluate_2d(expr: str, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    expr = normalize_expression(expr)
+    local_scope = {"x": x, "y": y, **SAFE_FUNCTIONS}
+    return eval(expr, {"__builtins__": {}}, local_scope)
 
-def bubble_sort(arr):
-    n = len(arr)
-    for i in range(n):
-        swapped = False
-        for j in range(0, n - i - 1):
-            if arr[j] > arr[j + 1]:
-                arr[j], arr[j + 1] = arr[j + 1], arr[j]
-                swapped = True
-        yield arr, f"Round {i + 1} Complete", list(range(n - i - 1, n))
-        if not swapped:
-            break
+# --- Streamlit UI Setup ---
+st.set_page_config(page_title="Monte Carlo Visualizer", layout="wide")
+st.title("🎯 Monte Carlo Integration Visualizer")
 
-def selection_sort(arr):
-    n = len(arr)
-    for i in range(n):
-        min_idx = i
-        for j in range(i + 1, n):
-            if arr[j] < arr[min_idx]:
-                min_idx = j
-        arr[i], arr[min_idx] = arr[min_idx], arr[i]
-        yield arr, f"Round {i + 1} Complete", [i]
+mode = st.sidebar.selectbox("Select Dimension", ["2D (Single Integral)", "3D (Double Integral)"])
 
-def insertion_sort(arr):
-    for i in range(1, len(arr)):
-        key = arr[i]
-        j = i - 1
-        while j >= 0 and arr[j] > key:
-            arr[j + 1] = arr[j]
-            j -= 1
-        arr[j + 1] = key
-        yield arr, f"Round {i} Complete", [j + 1]
+# --- Sidebar Inputs ---
+st.sidebar.header("Parameters")
+func_input = st.sidebar.text_input("Function f(x)" if mode == "2D (Single Integral)" else "Function f(x, y)", 
+                                   "sin(x) + 2" if mode == "2D (Single Integral)" else "x^2 + y^2 + 1")
 
-def heap_sort(arr):
-    n = len(arr)
+num_points = st.sidebar.slider("Number of Points", 100, 50000, 5000, step=100)
 
-    def heapify(n, i):
-        largest = i
-        l = 2 * i + 1
-        r = 2 * i + 2
-        if l < n and arr[i] < arr[l]: largest = l
-        if r < n and arr[largest] < arr[r]: largest = r
-        if largest != i:
-            arr[i], arr[largest] = arr[largest], arr[i]
-            heapify(n, largest)
-
-    for i in range(n // 2 - 1, -1, -1):
-        heapify(n, i)
-    yield arr, "Round 1: Max Heap Built", [0]
-
-    for i in range(n - 1, 0, -1):
-        arr[i], arr[0] = arr[0], arr[i]
-        heapify(i, 0)
-        yield arr, f"Round {n - i + 1}: Extracted max to index {i}", [i]
-
-def quick_sort(arr, low, high):
-    if low < high:
-        pivot = arr[high]
-        i = low - 1
-        for j in range(low, high):
-            if arr[j] <= pivot:
-                i += 1
-                arr[i], arr[j] = arr[j], arr[i]
-        arr[i + 1], arr[high] = arr[high], arr[i + 1]
-        p = i + 1
-        yield arr, f"Pivot {pivot} placed", [p]
-        yield from quick_sort(arr, low, p - 1)
-        yield from quick_sort(arr, p + 1, high)
-
-def merge_sort(arr, l, r):
-    if l < r:
-        m = (l + r) // 2
-        yield from merge_sort(arr, l, m)
-        yield from merge_sort(arr, m + 1, r)
-        left_part = arr[l:m+1]
-        right_part = arr[m+1:r+1]
-        i = j = 0
-        k = l
-        while i < len(left_part) and j < len(right_part):
-            if left_part[i] <= right_part[j]:
-                arr[k] = left_part[i]
-                i += 1
-            else:
-                arr[k] = right_part[j]
-                j += 1
-            k += 1
-        while i < len(left_part):
-            arr[k] = left_part[i]
-            i += 1
-            k += 1
-        while j < len(right_part):
-            arr[k] = right_part[j]
-            j += 1
-            k += 1
-        yield arr, f"Merged range {l} to {r}", list(range(l, r + 1))
-
-def bucket_sort(arr):
-    n = len(arr)
-    if n <= 1:
-        return
-    buckets = [[] for _ in range(n)]
-    for val in arr:
-        index = int(n * val) if val < 1 else n - 1
-        buckets[index].append(val)
-    yield arr, "Elements distributed to buckets", []
-    k = 0
-    for i in range(n):
-        buckets[i].sort()
-        for val in buckets[i]:
-            arr[k] = val
-            k += 1
-        yield arr, f"Bucket {i} sorted and merged", list(range(max(0, k - len(buckets[i])), k))
-
-def counting_sort(arr):
-    if any(x < 0 for x in arr):
-        return
-    max_val = int(max(arr))
-    count = [0] * (max_val + 1)
-    for x in arr:
-        count[int(x)] += 1
-    yield arr, "Occurrences counted", []
-    i = 0
-    for val, c in enumerate(count):
-        if c > 0:
-            start = i
-            for _ in range(c):
-                arr[i] = float(val)
-                i += 1
-            yield arr, f"Placed all of value {val}", list(range(start, i))
-
-# --- Sidebar Controls ---
-st.sidebar.header("Settings")
-algo_name = st.sidebar.selectbox("Select Algorithm",
-    ["Bubble Sort", "Selection Sort", "Insertion Sort", "Heap Sort", "Quick Sort", "Merge Sort", "Bucket Sort", "Counting Sort"])
-
-st.sidebar.subheader("Data Input")
-manual_input = st.sidebar.text_input("Enter list (comma separated)", placeholder="e.g. 0.5, 0.2, 0.8, 0.1")
-
-if st.sidebar.button("Load List"):
-    try:
-        new_arr = [float(x.strip()) for x in manual_input.split(",") if x.strip()]
-        if new_arr:
-            st.session_state.arr = new_arr
-            st.success("Loaded")
-    except ValueError:
-        st.sidebar.error("Please use valid numbers")
-
-single_val = st.sidebar.number_input("Add a single number", min_value=0.0, max_value=200.0, value=0.5, step=0.1, format="%.2f")
 col1, col2 = st.sidebar.columns(2)
-with col1:
-    if st.button("Add"):
-        if "arr" not in st.session_state: st.session_state.arr = []
-        st.session_state.arr.append(single_val)
-        st.rerun()
-with col2:
-    if st.button("Clear"):
-        st.session_state.arr = []
-        st.rerun()
+x_min = col1.number_input("X Min", value=0.0)
+x_max = col2.number_input("X Max", value=float(np.pi))
 
-st.sidebar.markdown("---")
-data_size = st.sidebar.slider("Random Array Size", 5, 50, 10)
-speed = st.sidebar.slider("Speed (s) per Round", 0.0, 2.0, 0.5)
+if mode == "3D (Double Integral)":
+    col3, col4 = st.sidebar.columns(2)
+    y_min = col3.number_input("Y Min", value=0.0)
+    y_max = col4.number_input("Y Max", value=float(np.pi))
 
-if "arr" not in st.session_state or st.sidebar.button("Randomize Data"):
-    if algo_name == "Bucket Sort":
-        st.session_state.arr = [round(random.uniform(0, 1), 2) for _ in range(data_size)]
+# --- Visualization Logic ---
+try:
+    if mode == "2D (Single Integral)":
+        # Data Generation
+        x_plot = np.linspace(x_min, x_max, 1000)
+        y_plot = evaluate_1d(func_input, x_plot)
+        
+        y_min_val, y_max_val = np.min(y_plot), np.max(y_plot)
+        y_range = y_max_val - y_min_val
+        y_sample_min, y_sample_max = y_min_val - 0.1 * y_range, y_max_val + 0.1 * y_range
+
+        # Monte Carlo Sampling
+        x_rand = np.random.uniform(x_min, x_max, num_points)
+        y_rand = np.random.uniform(y_sample_min, y_sample_max, num_points)
+        y_curve = evaluate_1d(func_input, x_rand)
+        inside = y_rand <= y_curve
+
+        # Calculation
+        hit_ratio = np.mean(inside)
+        estimate = (x_max - x_min) * (y_sample_min + hit_ratio * (y_sample_max - y_sample_min))
+
+        # Plotting
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(x_plot, y_plot, color="#2E7D32", lw=2, label=f"f(x)={func_input}")
+        ax.fill_between(x_plot, 0, y_plot, alpha=0.2, color="#66BB6A")
+        ax.scatter(x_rand[inside], y_rand[inside], s=1, color="#1E88E5", alpha=0.5, label="Inside")
+        ax.scatter(x_rand[~inside], y_rand[~inside], s=1, color="#E53935", alpha=0.3, label="Outside")
+        ax.set_ylim(y_sample_min, y_sample_max)
+        ax.legend()
+        
+        st.pyplot(fig)
+        st.success(f"Estimated Integral: **{estimate:.6f}**")
+
     else:
-        st.session_state.arr = [float(random.randint(1, 100)) for _ in range(data_size)]
+        # 3D Data Generation
+        res = 50
+        x_line = np.linspace(x_min, x_max, res)
+        y_line = np.linspace(y_min, y_max, res)
+        X, Y = np.meshgrid(x_line, y_line)
+        Z = evaluate_2d(func_input, X, Y)
 
-# --- Main Visualization Area ---
-status_text = st.empty()
-chart_placeholder = st.empty()
-history_header = st.empty()
-history_placeholder = st.empty()
+        z_min_val, z_max_val = np.min(Z), np.max(Z)
+        z_range = z_max_val - z_min_val
+        z_sample_min, z_sample_max = z_min_val - 0.1 * z_range, z_max_val + 0.1 * z_range
 
-def run_visualization():
-    if not st.session_state.arr:
-        st.error("Please add some data first")
-        return
+        # Monte Carlo Sampling
+        x_rand = np.random.uniform(x_min, x_max, num_points)
+        y_rand = np.random.uniform(y_min, y_max, num_points)
+        z_rand = np.random.uniform(z_sample_min, z_sample_max, num_points)
+        z_surface = evaluate_2d(func_input, x_rand, y_rand)
+        inside = z_rand <= z_surface
 
-    arr_copy = st.session_state.arr.copy()
-    history = []
-    history.append({"Round": 0, "State": "{" + ", ".join(map(str, arr_copy)) + "}"})
+        # Calculation
+        hit_ratio = np.mean(inside)
+        domain_area = (x_max - x_min) * (y_max - y_min)
+        estimate = domain_area * (z_sample_min + hit_ratio * (z_sample_max - z_sample_min))
 
-    if algo_name == "Bubble Sort":       sorter = bubble_sort(arr_copy)
-    elif algo_name == "Selection Sort":  sorter = selection_sort(arr_copy)
-    elif algo_name == "Insertion Sort":  sorter = insertion_sort(arr_copy)
-    elif algo_name == "Heap Sort":       sorter = heap_sort(arr_copy)
-    elif algo_name == "Quick Sort":      sorter = quick_sort(arr_copy, 0, len(arr_copy) - 1)
-    elif algo_name == "Merge Sort":      sorter = merge_sort(arr_copy, 0, len(arr_copy) - 1)
-    elif algo_name == "Bucket Sort":     sorter = bucket_sort(arr_copy)
-    elif algo_name == "Counting Sort":   sorter = counting_sort(arr_copy)
+        # Plotting
+        fig = plt.figure(figsize=(10, 7))
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(X, Y, Z, cmap='viridis', alpha=0.4)
+        
+        # Limit display points for performance
+        display_n = 5000
+        ax.scatter(x_rand[inside][:display_n], y_rand[inside][:display_n], z_rand[inside][:display_n], 
+                   s=1, color="#1E88E5", alpha=0.4)
+        ax.scatter(x_rand[~inside][:display_n], y_rand[~inside][:display_n], z_rand[~inside][:display_n], 
+                   s=1, color="#E53935", alpha=0.2)
+        
+        st.pyplot(fig)
+        st.success(f"Estimated Double Integral (Volume): **{estimate:.6f}**")
 
-    round_count = 1
-    for current_arr, state, highlights in sorter:
-        status_text.markdown(f"**Current Status:** {state}")
-        chart_placeholder.plotly_chart(
-            make_bar_chart(current_arr, highlight_indices=highlights),
-            use_container_width=True,
-            key=f"chart_{round_count}"
-        )
+except Exception as e:
+    st.error(f"Error in expression: {e}")
 
-        history.append({"Round": round_count, "State": "{" + ", ".join(map(str, current_arr)) + "}"})
-        round_count += 1
-
-        history_header.subheader("Round History")
-        history_placeholder.table(pd.DataFrame(history))
-
-        if speed > 0:
-            time.sleep(speed)
-
-    status_text.success(f"{algo_name} Finished")
-    chart_placeholder.plotly_chart(
-        make_bar_chart(arr_copy, highlight_indices=list(range(len(arr_copy)))),
-        use_container_width=True,
-        key=f"chart_{round_count}_done"
-    )
-
-if st.session_state.arr:
-    chart_placeholder.plotly_chart(
-        make_bar_chart(st.session_state.arr),
-        use_container_width=True,
-        key="chart_initial"
-    )
-else:
-    chart_placeholder.info("List is empty.")
-
-if st.sidebar.button("Start Sorting", use_container_width=True):
-    run_visualization()
+st.info("Note: The visualizer calculates the area/volume between the curve and the horizontal axis/plane. Adjust bounds to fit the function shape.")
