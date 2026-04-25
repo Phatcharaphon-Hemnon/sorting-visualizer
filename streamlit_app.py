@@ -413,12 +413,13 @@ elif app_selection == "Las Vegas N-Queens":
             status_box.info(msg)
             logs.append(msg)
             
+            # THE FIX: Updated keyword arguments to match the render_board definition
             board_html = render_board(
                 n, 
                 step.get("queens", []), 
-                current_row=step.get("row"), 
-                safe_cols=step.get("safe_cols"),
-                is_dead=(st_type == "dead_end")
+                row=step.get("row"), 
+                safe=step.get("safe_cols"),
+                dead=(st_type == "dead_end")
             )
             board_box.markdown(board_html, unsafe_allow_html=True)
             
