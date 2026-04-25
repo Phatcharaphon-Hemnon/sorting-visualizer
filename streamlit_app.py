@@ -243,30 +243,61 @@ def generate_steps(n, max_restarts, seed):
     
     return steps, max_restarts
 
-def render_board(n, queens, current_row=None, safe_cols=None, is_dead=False):
-    table = "<table style='border-collapse: separate; border-spacing: 4px;'>"
+def render_board(n, queens, row=None, safe=None, dead=False):
+    # Set the size of each square
+    cell_size = 45 
+    grid_width = n * (cell_size + 2) # Adding 2 for the gap
+    
+    # Grid container with explicit column repeats
+    html = f"""
+    <div style='
+        display: grid; 
+        grid-template-columns: repeat({n}, {cell_size}px); 
+        grid-template-rows: repeat({n}, {cell_size}px); 
+        gap: 2px; 
+        width: {grid_width}px;
+        margin: 10px 0;
+    '>"""
+    
     for r in range(n):
-        table += "<tr>"
         for c in range(n):
-            css_class = "cell"
+            # Chessboard pattern logic
+            base_color = "#f8f9fa" if (r + c) % 2 == 0 else "#e5e7eb"
             content = ""
+            border = "none"
             
+            # 1. Check if there is a Queen here
             if r < len(queens) and queens[r] == c:
-                css_class += " q-cell"
+                base_color = "#ee6c4d"
                 content = "Q"
-            elif r == current_row:
-                if is_dead:
-                    css_class += " dead-cell"
-                elif safe_cols and c in safe_cols:
-                    css_class += " safe-cell"
+            
+            # 2. Highlight current row being processed
+            elif r == row:
+                if dead:
+                    base_color = "#ef476f" # Red for dead-end
+                elif safe and c in safe:
+                    base_color = "#90e0ef" # Light blue for safe spots
                     content = "+"
                 else:
-                    css_class += " current-row"
+                    base_color = "#ffd166" # Yellow for current processing row
             
-            table += f"<td class='{css_class}'>{content}</td>"
-        table += "</tr>"
-    table += "</table>"
-    return table
+            html += f"""
+                <div style='
+                    width:{cell_size}px; 
+                    height:{cell_size}px; 
+                    background:{base_color}; 
+                    display:flex; 
+                    justify-content:center; 
+                    align-items:center; 
+                    font-weight:bold; 
+                    color:#1f2937;
+                    border-radius:4px;
+                    font-size: 1.2rem;
+                '>{content}</div>
+            """
+    
+    html += "</div>"
+    return html
 
 
 # ===============================================================================
