@@ -244,27 +244,17 @@ def generate_steps(n, max_restarts, seed):
     return steps, max_restarts
 
 def render_board(n, queens, row=None, safe=None, dead=False):
-    # Set the size of each square
     cell_size = 45 
     grid_width = n * (cell_size + 2) # Adding 2 for the gap
     
-    # Grid container with explicit column repeats
-    html = f"""
-    <div style='
-        display: grid; 
-        grid-template-columns: repeat({n}, {cell_size}px); 
-        grid-template-rows: repeat({n}, {cell_size}px); 
-        gap: 2px; 
-        width: {grid_width}px;
-        margin: 10px 0;
-    '>"""
+    # Grid container (flattened string to prevent Streamlit markdown breaks)
+    html = f"<div style='display: grid; grid-template-columns: repeat({n}, {cell_size}px); grid-template-rows: repeat({n}, {cell_size}px); gap: 2px; width: {grid_width}px; margin: 10px 0;'>"
     
     for r in range(n):
         for c in range(n):
             # Chessboard pattern logic
             base_color = "#f8f9fa" if (r + c) % 2 == 0 else "#e5e7eb"
             content = ""
-            border = "none"
             
             # 1. Check if there is a Queen here
             if r < len(queens) and queens[r] == c:
@@ -281,24 +271,11 @@ def render_board(n, queens, row=None, safe=None, dead=False):
                 else:
                     base_color = "#ffd166" # Yellow for current processing row
             
-            html += f"""
-                <div style='
-                    width:{cell_size}px; 
-                    height:{cell_size}px; 
-                    background:{base_color}; 
-                    display:flex; 
-                    justify-content:center; 
-                    align-items:center; 
-                    font-weight:bold; 
-                    color:#1f2937;
-                    border-radius:4px;
-                    font-size: 1.2rem;
-                '>{content}</div>
-            """
+            # Flattened inner div
+            html += f"<div style='width:{cell_size}px; height:{cell_size}px; background:{base_color}; display:flex; justify-content:center; align-items:center; font-weight:bold; color:#1f2937; border-radius:4px; font-size: 1.2rem;'>{content}</div>"
     
     html += "</div>"
     return html
-
 
 # ===============================================================================
 # ── UNIFIED UI NAVIGATION & ROUTING ────────────────────────────────────────────
